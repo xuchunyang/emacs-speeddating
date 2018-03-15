@@ -26,5 +26,42 @@
 
 ;;; Code:
 
+(require 'rx)
+(require 'thingatpt)
+(require 'cl-lib)
+
+;;;###autoload
+(defun speeddating-increase (inc)
+  "Increase the date and time at point."
+  (interactive "p")
+  ;; "%Y-%m-%d" 1999-12-31
+  (when (thing-at-point-looking-at
+         (rx (group (repeat 4 digit))
+             "-"
+             (group (repeat 2 digit))
+             "-"
+             (group (repeat 2 digit)))
+         9)
+    ;; (SEC MINUTE HOUR DAY MONTH YEAR DOW DST UTCOFF)
+    (let ((time (parse-time-string (match-string 0)))
+          (opoint (point)))
+      (setq time (mapcar (lambda (x) (if x x 0)) time))
+      (cond ((>= opoint (match-beginning 3))
+             (cl-incf (nth 3 time) inc))
+            ((>= opoint (match-beginning 2))
+             (cl-incf (nth 4 time) inc))
+            ((>= opoint (match-beginning 1))
+             (cl-incf (nth 5 time) inc))
+            (t (error "When pigs fly")))
+      (delete-region (match-beginning 0) (match-end 0))
+      (insert (format-time-string "%Y-%m-%d" (apply #'encode-time time)))
+      (goto-char opoint))))
+
+;;;###autoload
+(defun speeddating-decrease (dec)
+  "Decrease the date and time at point."
+  (interactive "p")
+  (speeddating-increase (- dec)))
+
 (provide 'speeddating)
 ;;; speeddating.el ends here
