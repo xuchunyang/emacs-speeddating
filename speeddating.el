@@ -52,17 +52,21 @@
 (defun speeddating-increase (inc)
   "Increase the date and time at point."
   (interactive "*p")
-  ;; "%Y-%m-%d" 1999-12-31
-  (if (thing-at-point-looking-at
-       (rx (group (repeat 4 digit))
-           "-"
-           (group (repeat 2 digit))
-           "-"
-           (group (repeat 2 digit)))
-       9)
-      (let ((time (parse-time-string (match-string 0)))
-            (pt (point)))
-        (setq time (mapcar (lambda (x) (if x x 0)) time))
+  (let* ((4-digits (rx (group (repeat 4 digit))))
+         (2-digits (rx (group (repeat 2 digit))))
+         (yyyy 4-digits)
+         (MM   2-digits)
+         (dd   2-digits)
+         (HH   2-digits)
+         (mm   2-digits)
+         (ss   2-digits))
+    (cond
+     ;; %Y-%m-%d yyyy-MM-dd 1999-12-31
+     ((thing-at-point-looking-at (format "%s-%s-%s" yyyy MM dd) (1- (length "yyyy-MM-dd")))
+      (let ((time (decode-time)))
+        (setf (speeddating--year time) (string-to-number (match-string 1))
+              (speeddating--month time) (string-to-number (match-string 2))
+              (speeddating--day time) (string-to-number (match-string 3)))
         (cond ((speeddating--on-subexp-p 1)
                (cl-incf (speeddating--year time) inc))
               ((speeddating--on-subexp-p 2)
@@ -72,11 +76,31 @@
               ((speeddating--on-subexp-p 0)
                (user-error "Don't know how to increase/decrease, please move point"))
               (t (error "When pigs fly")))
-        (delete-region (match-beginning 0) (match-end 0))
-        (insert (format-time-string "%Y-%m-%d" (apply #'encode-time time)))
-        (goto-char pt))
-    (user-error "No date and time at point or \
-speeddating doesn't yet understand its format")))
+        (let ((old-point (point)))
+          (delete-region (match-beginning 0) (match-end 0))
+          (insert (format-time-string "%Y-%m-%d" (apply #'encode-time time)))
+          (goto-char old-point))))
+     ;; %H:%M:%S HH:mm:ss 23:02:59
+     ((thing-at-point-looking-at (format "%s:%s:%s" HH mm ss) (1- (length "HH:mm:ss")))
+      (let ((time (decode-time)))
+        (setf (speeddating--hour time) (string-to-number (match-string 1))
+              (speeddating--minute time) (string-to-number (match-string 2))
+              (speeddating--sec time) (string-to-number (match-string 3)))
+        (cond ((speeddating--on-subexp-p 1)
+               (cl-incf (speeddating--hour time) inc))
+              ((speeddating--on-subexp-p 2)
+               (cl-incf (speeddating--minute time) inc))
+              ((speeddating--on-subexp-p 3)
+               (cl-incf (speeddating--sec time) inc))
+              ((speeddating--on-subexp-p 0)
+               (user-error "Don't know how to increase/decrease, please move point"))
+              (t (error "When pigs fly")))
+        (let ((old-point (point)))
+          (delete-region (match-beginning 0) (match-end 0))
+          (insert (format-time-string "%H:%M:%S" (apply #'encode-time time)))
+          (goto-char old-point))))
+     (user-error "No date and time at point or \
+speeddating doesn't yet understand its format"))))
 
 ;;;###autoload
 (defun speeddating-decrease (dec)
