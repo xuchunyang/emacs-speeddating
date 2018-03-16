@@ -32,6 +32,11 @@
 (require 'thingatpt)
 (require 'cl-lib)
 
+(defun speeddating--on-subexp-p (num)
+  "Return t if the point is on the subexpression NUM."
+  (and (>= (point) (match-beginning num))
+       (<  (point) (match-end num))))
+
 ;;;###autoload
 (defun speeddating-increase (inc)
   "Increase the date and time at point."
@@ -46,20 +51,22 @@
        9)
       ;; (SEC MINUTE HOUR DAY MONTH YEAR DOW DST UTCOFF)
       (let ((time (parse-time-string (match-string 0)))
-            (opoint (point)))
+            (pt (point)))
         (setq time (mapcar (lambda (x) (if x x 0)) time))
-        (cond ((>= opoint (match-beginning 3))
+        (cond ((speeddating--on-subexp-p 3)
                (cl-incf (nth 3 time) inc))
-              ((>= opoint (match-beginning 2))
+              ((speeddating--on-subexp-p 2)
                (cl-incf (nth 4 time) inc))
-              ((>= opoint (match-beginning 1))
+              ((speeddating--on-subexp-p 1)
                (cl-incf (nth 5 time) inc))
+              ((speeddating--on-subexp-p 0)
+               (user-error "Don't know how to increase/decrease, please move point"))
               (t (error "When pigs fly")))
         (delete-region (match-beginning 0) (match-end 0))
         (insert (format-time-string "%Y-%m-%d" (apply #'encode-time time)))
-        (goto-char opoint))
+        (goto-char pt))
     (user-error "No date and time at point or \
-speeddating does not yet understand its format")))
+speeddating doesn't yet understand its format")))
 
 ;;;###autoload
 (defun speeddating-decrease (dec)
