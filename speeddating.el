@@ -41,9 +41,11 @@
   "Increasing or decreasing dates & times."
   :group 'convenience)
 
-(defcustom speeddating-formats '("%d %B %Y"
-                                 "%Y-%m-%d"
-                                 "%H:%M:%S")
+(defcustom speeddating-formats
+  '("%a, %d %b %Y %H:%M:%S %z"          ; Email, "date --rfc-email"
+    "%d %B %Y"
+    "%Y-%m-%d"
+    "%H:%M:%S")
   "The date & time formats list.
 The format uses the same syntax as `format-time-string'."
   :type '(repeat (choice string))
@@ -133,7 +135,18 @@ The format uses the same syntax as `format-time-string'."
          :reg (rx (group (repeat 2 digit)))
          :len 2
          :set (speeddating--time-set-sec (string-to-number string))
-         :inc #'speeddating--time-inc-sec))
+         :inc #'speeddating--time-inc-sec)
+   (list "%z"
+         :reg (rx (group (or "-" "+") (repeat 4 digit)))
+         :len 5
+         :set (lambda (time string)
+                (let ((sign (intern (substring string 0 1)))
+                      (hour (string-to-number (substring string 1 3)))
+                      (minute (string-to-number (substring string 3))))
+                  (setf (nth 8 time) (funcall sign (+ (* hour 60 60) (* minute 60))))))
+         :inc (lambda (_time _inc)
+                (user-error
+                 "Increasing or decreasing time zone is not yet supported"))))
   "List of (%-spec regexp length set inc).")
 
 (defun speeddating--format-split (string)
