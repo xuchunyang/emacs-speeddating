@@ -4,7 +4,7 @@
 
 ;; Author: Xu Chunyang <mail@xuchunyang.me>
 ;; Homepage: https://github.com/xuchunyang/emacs-speeddating
-;; Package-Requires: ((emacs "24.3"))
+;; Package-Requires: ((emacs "25"))
 ;; Keywords: date time
 ;; Created: Thu, 15 Mar 2018 15:17:39 +0800
 ;; Version: 0
@@ -33,6 +33,7 @@
 (require 'rx)
 (require 'thingatpt)
 (require 'cl-lib)
+(require 'seq)
 
 ;;;; Custom options
 
@@ -99,7 +100,7 @@ The format uses the same syntax as `format-time-string'."
             ("%H" 2)
             ("%M" 2)
             ("%S" 2)
-            (_    (error "unsupported %s" x)))
+            (_    (error "Unsupported %s" x)))
         1))
     (speeddating--format-string-split string))))
 
@@ -118,7 +119,7 @@ The format uses the same syntax as `format-time-string'."
                ("%H" 'hour)
                ("%M" 'minute)
                ("%S" 'sec)
-               (_    (error "unsupported %s" x)))))
+               (_    (error "Unsupported %s" x)))))
          (speeddating--format-string-split string))))
 
 ;; (speeddating--format-string-to-list "%Y-%m-%d")
@@ -199,7 +200,7 @@ The format uses the same syntax as `format-time-string'."
 
 ;;;###autoload
 (defun speeddating-increase (inc)
-  "Increase the date and time at point."
+  "Increase the date and time at point by INC."
   (interactive "*p")
   (let ((formats (copy-sequence speeddating-formats))
         (found nil))
@@ -212,7 +213,7 @@ The format uses the same syntax as `format-time-string'."
 
 ;;;###autoload
 (defun speeddating-decrease (dec)
-  "Decrease the date and time at point."
+  "Decrease the date and time at point by DEC."
   (interactive "*p")
   (speeddating-increase (- dec)))
 
