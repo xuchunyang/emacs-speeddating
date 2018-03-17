@@ -28,79 +28,187 @@
 
 ;;; Code:
 
+;;;; Requirements
+
 (require 'rx)
 (require 'thingatpt)
 (require 'cl-lib)
+
+;;;; Custom options
+
+(defgroup speeddating nil
+  "Increasing or decreasing dates & times."
+  :group 'convenience)
+
+(defcustom speeddating-formats '("%Y-%m-%d"
+                                 "%H:%M:%S")
+  "The date & time formats list.
+The format uses the same syntax as `format-time-string'."
+  :type '(repeat (choice string))
+  :group 'speeddating)
+
+;;;; Internal functions
+
+(defun speeddating--format-string-split (string)
+  (let ((index 0)
+        (end (length string))
+        (list ()))
+    (while (< index end)
+      (if (and (= (aref string index) ?%)
+               (< (1+ index) end))
+          (progn
+            (push (substring string index (+ index 2)) list)
+            (cl-incf index 2))
+        (push (string (aref string index)) list)
+        (cl-incf index)))
+    (nreverse list)))
+
+;; (speeddating--format-string-split "%Y-%m-%d")
+;;      => ("%Y" "-" "%m" "-" "%d")
+
+(defun speeddating--format-string-to-regexp (string)
+  (let ((4-digits (rx (group (repeat 4 digit))))
+        (2-digits (rx (group (repeat 2 digit)))))
+    (mapconcat
+     (lambda (x)
+       (if (= (length x) 2)
+           (pcase x
+             ("%Y" 4-digits)
+             ("%m" 2-digits)
+             ("%d" 2-digits)
+             ("%H" 2-digits)
+             ("%M" 2-digits)
+             ("%S" 2-digits)
+             (_    (error "Unsupported %s" x)))
+         (regexp-quote x)))
+     (speeddating--format-string-split string) "")))
+
+;; (speeddating--format-string-to-regexp "%Y-%m-%d")
+;;      => "\\([[:digit:]]\\{4\\}\\)-\\([[:digit:]]\\{2\\}\\)-\\([[:digit:]]\\{2\\}\\)"
+
+(defun speeddating--format-string-length (string)
+  (apply
+   #'+
+   (mapcar
+    (lambda (x)
+      (if (= (length x) 2)
+          (pcase x
+            ("%Y" 4)
+            ("%m" 2)
+            ("%d" 2)
+            ("%H" 2)
+            ("%M" 2)
+            ("%S" 2)
+            (_    (error "unsupported %s" x)))
+        1))
+    (speeddating--format-string-split string))))
+
+;; (speeddating--format-string-length "%Y-%m-%d")
+;;      => 10
+
+(defun speeddating--format-string-to-list (string)
+  (delq nil
+        (mapcar
+         (lambda (x)
+           (when (= (length x) 2)
+             (pcase x
+               ("%Y" 'year)
+               ("%m" 'month)
+               ("%d" 'day)
+               ("%H" 'hour)
+               ("%M" 'minute)
+               ("%S" 'sec)
+               (_    (error "unsupported %s" x)))))
+         (speeddating--format-string-split string))))
+
+;; (speeddating--format-string-to-list "%Y-%m-%d")
+;;      => (year month day)
+
+(defun speeddating--format-string-get-time (string)
+  (when (thing-at-point-looking-at
+         (speeddating--format-string-to-regexp string)
+         (1- (speeddating--format-string-length string)))
+    (let ((now (decode-time)))
+      (seq-let (sec minute hour day month year dow dst utcoff) now
+        (seq-do-indexed
+         (lambda (elt index)
+           ;; Not working under Lexical binding
+           ;; (set elt (string-to-number (match-string (1+ index))))
+           (let ((val (string-to-number (match-string (1+ index)))))
+             (pcase elt
+               ;; Use backquote instead of regular quote here for compatibility
+               ;; with Emacs 24.5.
+               (`sec    (setq sec    val))
+               (`minute (setq minute val))
+               (`hour   (setq hour   val))
+               (`day    (setq day    val))
+               (`month  (setq month  val))
+               (`year   (setq year   val))
+               (`dow    (setq dow    val))
+               (`dst    (setq dst    val))
+               (`utcoff (setq utcoff val)))))
+         (speeddating--format-string-to-list string))
+        (list sec minute hour day month year dow dst utcoff)))))
+
+(defun speeddating--format-string-inc-time (string inc)
+  (let ((time (speeddating--format-string-get-time string)))
+    (when time
+      (seq-let (sec minute hour day month year dow dst utcoff) time
+        (let ((list (speeddating--format-string-to-list string))
+              (group 1)
+              (found nil))
+          (while (and list (null found))
+            (when (speeddating--on-subexp-p group)
+              (setq found (car list)))
+            (pop list)
+            (cl-incf group))
+          (if found
+              ;; Not working under Lexical binding
+              ;; (set found (1+ (eval found)))
+              (pcase found
+                ;; Use backquote instead of regular quote here for compatibility
+                ;; with Emacs 24.5.
+                (`sec    (cl-incf sec    inc))
+                (`minute (cl-incf minute inc))
+                (`hour   (cl-incf hour   inc))
+                (`day    (cl-incf day    inc))
+                (`month  (cl-incf month  inc))
+                (`year   (cl-incf year   inc))
+                (`dow    (cl-incf dow    inc))
+                (`dst    (cl-incf dst    inc))
+                (`utcoff (cl-incf utcoff inc)))
+            (user-error (concat "Don't know which field to increase or decrease, "
+                                "try to move point"))))
+        (speeddating--format-string-replace-time
+         string
+         (list sec minute hour day month year dow dst utcoff))))))
+
+(defun speeddating--format-string-replace-time (string time)
+  (let ((new (format-time-string string (apply #'encode-time time)))
+        (old-point (point)))
+    (delete-region (match-beginning 0) (match-end 0))
+    (insert new)
+    (goto-char old-point)))
 
 (defun speeddating--on-subexp-p (num)
   "Return t if the point is on the subexpression NUM."
   (and (>= (point) (match-beginning num))
        (<  (point) (match-end num))))
 
-;; (SEC MINUTE HOUR DAY MONTH YEAR DOW DST UTCOFF)
-(defmacro speeddating--sec    (time) `(nth 0 ,time))
-(defmacro speeddating--minute (time) `(nth 1 ,time))
-(defmacro speeddating--hour   (time) `(nth 2 ,time))
-(defmacro speeddating--day    (time) `(nth 3 ,time))
-(defmacro speeddating--month  (time) `(nth 4 ,time))
-(defmacro speeddating--year   (time) `(nth 5 ,time))
-(defmacro speeddating--dow    (time) `(nth 6 ,time))
-(defmacro speeddating--dst    (time) `(nth 7 ,time))
-(defmacro speeddating--utcoff (time) `(nth 8 ,time))
+;;;; User commands
 
 ;;;###autoload
 (defun speeddating-increase (inc)
   "Increase the date and time at point."
   (interactive "*p")
-  (let* ((4-digits (rx (group (repeat 4 digit))))
-         (2-digits (rx (group (repeat 2 digit))))
-         (yyyy 4-digits)
-         (MM   2-digits)
-         (dd   2-digits)
-         (HH   2-digits)
-         (mm   2-digits)
-         (ss   2-digits))
-    (cond
-     ;; %Y-%m-%d yyyy-MM-dd 1999-12-31
-     ((thing-at-point-looking-at (format "%s-%s-%s" yyyy MM dd) (1- (length "yyyy-MM-dd")))
-      (let ((time (decode-time)))
-        (setf (speeddating--year time) (string-to-number (match-string 1))
-              (speeddating--month time) (string-to-number (match-string 2))
-              (speeddating--day time) (string-to-number (match-string 3)))
-        (cond ((speeddating--on-subexp-p 1)
-               (cl-incf (speeddating--year time) inc))
-              ((speeddating--on-subexp-p 2)
-               (cl-incf (speeddating--month time) inc))
-              ((speeddating--on-subexp-p 3)
-               (cl-incf (speeddating--day time) inc))
-              ((speeddating--on-subexp-p 0)
-               (user-error "Don't know how to increase/decrease, please move point"))
-              (t (error "When pigs fly")))
-        (let ((old-point (point)))
-          (delete-region (match-beginning 0) (match-end 0))
-          (insert (format-time-string "%Y-%m-%d" (apply #'encode-time time)))
-          (goto-char old-point))))
-     ;; %H:%M:%S HH:mm:ss 23:02:59
-     ((thing-at-point-looking-at (format "%s:%s:%s" HH mm ss) (1- (length "HH:mm:ss")))
-      (let ((time (decode-time)))
-        (setf (speeddating--hour time) (string-to-number (match-string 1))
-              (speeddating--minute time) (string-to-number (match-string 2))
-              (speeddating--sec time) (string-to-number (match-string 3)))
-        (cond ((speeddating--on-subexp-p 1)
-               (cl-incf (speeddating--hour time) inc))
-              ((speeddating--on-subexp-p 2)
-               (cl-incf (speeddating--minute time) inc))
-              ((speeddating--on-subexp-p 3)
-               (cl-incf (speeddating--sec time) inc))
-              ((speeddating--on-subexp-p 0)
-               (user-error "Don't know how to increase/decrease, please move point"))
-              (t (error "When pigs fly")))
-        (let ((old-point (point)))
-          (delete-region (match-beginning 0) (match-end 0))
-          (insert (format-time-string "%H:%M:%S" (apply #'encode-time time)))
-          (goto-char old-point))))
-     (user-error "No date and time at point or \
-speeddating doesn't yet understand its format"))))
+  (let ((formats (copy-sequence speeddating-formats))
+        (found nil))
+    (while (and formats (null found))
+      (when (speeddating--format-string-inc-time (pop formats) inc)
+        (setq found t)))
+    (unless found
+      (user-error
+       "No date and time at point or speeddating doesn't yet understand its format"))))
 
 ;;;###autoload
 (defun speeddating-decrease (dec)
