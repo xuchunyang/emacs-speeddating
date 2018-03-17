@@ -48,7 +48,25 @@ The format uses the same syntax as `format-time-string'."
   :type '(repeat (choice string))
   :group 'speeddating)
 
-;;;; Internal functions
+;;;; Internal variables and functions
+
+(defvar speeddating--abbrev-weekdays
+  '("Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun"))
+
+(defvar speeddating--full-weekdays
+  '("Monday" "Tuesday" "Wednesday" "Thursday" "Friday" "Saturday" "Sunday"))
+
+(defvar speeddating--format-spec
+  (list
+   (list "%a" (regexp-opt speeddating--abbrev-weekdays t) 3 'dow)
+   (list "%A" (regexp-opt speeddating--full-weekdays t)   9 'dow)
+   (list "%Y" (rx (group (repeat 4 digit)))               4 'year)
+   (list "%m" (rx (group (repeat 2 digit)))               2 'month)
+   (list "%d" (rx (group (repeat 2 digit)))               2 'day)
+   (list "%H" (rx (group (repeat 2 digit)))               2 'hour)
+   (list "%M" (rx (group (repeat 2 digit)))               2 'minute)
+   (list "%S" (rx (group (repeat 2 digit)))               2 'sec))
+  "List of (%-spec regexp length symbol).")
 
 (defun speeddating--format-split (string)
   (let ((index 0)
@@ -64,25 +82,19 @@ The format uses the same syntax as `format-time-string'."
         (cl-incf index)))
     (nreverse list)))
 
+;; (sec minute hour day month year dow dst utcoff)
+
 ;; (speeddating--format-split "%Y-%m-%d")
 ;;      => ("%Y" "-" "%m" "-" "%d")
 
 (defun speeddating--format-to-regexp (string)
-  (let ((4-digits (rx (group (repeat 4 digit))))
-        (2-digits (rx (group (repeat 2 digit)))))
-    (mapconcat
-     (lambda (x)
-       (if (= (length x) 2)
-           (pcase x
-             ("%Y" 4-digits)
-             ("%m" 2-digits)
-             ("%d" 2-digits)
-             ("%H" 2-digits)
-             ("%M" 2-digits)
-             ("%S" 2-digits)
-             (_    (error "Unsupported %s" x)))
-         (regexp-quote x)))
-     (speeddating--format-split string) "")))
+  (mapconcat
+   (lambda (x)
+     (if (= (length x) 2)
+         (let ((re (car (alist-get x speeddating--format-spec nil nil #'equal))))
+           (if re re (error "Unsupported format %s" x)))
+       (regexp-quote x)))
+   (speeddating--format-split string) ""))
 
 ;; (speeddating--format-to-regexp "%Y-%m-%d")
 ;;      => "\\([[:digit:]]\\{4\\}\\)-\\([[:digit:]]\\{2\\}\\)-\\([[:digit:]]\\{2\\}\\)"
@@ -93,14 +105,8 @@ The format uses the same syntax as `format-time-string'."
    (mapcar
     (lambda (x)
       (if (= (length x) 2)
-          (pcase x
-            ("%Y" 4)
-            ("%m" 2)
-            ("%d" 2)
-            ("%H" 2)
-            ("%M" 2)
-            ("%S" 2)
-            (_    (error "Unsupported %s" x)))
+          (let ((len (cadr (alist-get x speeddating--format-spec nil nil #'equal))))
+            (if len len (error "Unsupported format %s" x)))
         1))
     (speeddating--format-split string))))
 
@@ -112,14 +118,8 @@ The format uses the same syntax as `format-time-string'."
         (mapcar
          (lambda (x)
            (when (= (length x) 2)
-             (pcase x
-               ("%Y" 'year)
-               ("%m" 'month)
-               ("%d" 'day)
-               ("%H" 'hour)
-               ("%M" 'minute)
-               ("%S" 'sec)
-               (_    (error "Unsupported %s" x)))))
+             (let ((type (caddr (alist-get x speeddating--format-spec nil nil #'equal))))
+               (if type type (error "Unsupported %s" x)))))
          (speeddating--format-split string))))
 
 ;; (speeddating--format-to-list "%Y-%m-%d")
