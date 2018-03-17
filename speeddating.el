@@ -66,68 +66,74 @@ The format uses the same syntax as `format-time-string'."
 ;; (SEC MINUTE HOUR DAY MONTH YEAR DOW DST UTCOFF)
 ;;   0    1     2    3    4    5    6   7     8
 
+
+(defun speeddating--time-inc-sec    (time inc) (cl-incf (nth 0 time) inc))
+(defun speeddating--time-inc-minute (time inc) (cl-incf (nth 1 time) inc))
+(defun speeddating--time-inc-hour   (time inc) (cl-incf (nth 2 time) inc))
+(defun speeddating--time-inc-day    (time inc) (cl-incf (nth 3 time) inc))
+(defun speeddating--time-inc-month  (time inc) (cl-incf (nth 4 time) inc))
+(defun speeddating--time-inc-year   (time inc) (cl-incf (nth 5 time) inc))
+
+(defmacro speeddating--time-set-sec    (val) `(lambda (time string) (setf (nth 0 time) ,val)))
+(defmacro speeddating--time-set-minute (val) `(lambda (time string) (setf (nth 1 time) ,val)))
+(defmacro speeddating--time-set-hour   (val) `(lambda (time string) (setf (nth 2 time) ,val)))
+(defmacro speeddating--time-set-day    (val) `(lambda (time string) (setf (nth 3 time) ,val)))
+(defmacro speeddating--time-set-month  (val) `(lambda (time string) (setf (nth 4 time) ,val)))
+(defmacro speeddating--time-set-year   (val) `(lambda (time string) (setf (nth 5 time) ,val)))
+(defmacro speeddating--time-set-dow    (val) `(lambda (time string) (setf (nth 5 time) ,val)))
+
 (defvar speeddating--format-spec
   (list
    (list "%a"
-         :regexp (regexp-opt speeddating--abbrev-weekdays t)
-         :length 3
-         :setter (lambda (time string)
-                   (setf (nth 6 time) (1+ (seq-position speeddating--abbrev-weekdays string))))
-         :update (lambda (time inc) (cl-incf (nth 3 time) inc)))
+         :reg (regexp-opt speeddating--abbrev-weekdays t)
+         :len 3
+         :set (speeddating--time-set-dow (1+ (seq-position speeddating--abbrev-weekdays string)))
+         :inc #'speeddating--time-inc-day)
    (list "%A"
-         :regexp (regexp-opt speeddating--full-weekdays t)
-         :length 9
-         :setter (lambda (time string)
-                   (setf (nth 6 time) (1+ (seq-position speeddating--full-weekdays string))))
-         :update (lambda (time inc) (cl-incf (nth 3 time) inc)))
+         :reg (regexp-opt speeddating--full-weekdays t)
+         :len 9
+         :set (speeddating--time-set-dow (1+ (seq-position speeddating--full-weekdays string)))
+         :inc #'speeddating--time-inc-day)
    (list "%b"
-         :regexp (regexp-opt speeddating--abbrev-months t)
-         :length 3
-         :setter (lambda (time string)
-                   (setf (nth 4 time) (1+ (seq-position speeddating--abbrev-months string))))
-         :update (lambda (time inc) (cl-incf (nth 4 time) inc)))
+         :reg (regexp-opt speeddating--abbrev-months t)
+         :len 3
+         :set (speeddating--time-set-month (1+ (seq-position speeddating--abbrev-months string)))
+         :inc #'speeddating--time-inc-month)
    (list "%B"
-         :regexp (regexp-opt speeddating--full-months t)
-         :length 9
-         :setter (lambda (time string)
-                   (setf (nth 4 time) (1+ (seq-position speeddating--full-months string))))
-         :update (lambda (time inc) (cl-incf (nth 4 time) inc)))
+         :reg (regexp-opt speeddating--full-months t)
+         :len 9
+         :set (speeddating--time-set-month (1+ (seq-position speeddating--full-months string)))
+         :inc #'speeddating--time-inc-month)
    (list "%Y"
-         :regexp (rx (group (repeat 4 digit)))
-         :length 4
-         :setter (lambda (time string)
-                   (setf (nth 5 time) (string-to-number string)))
-         :update (lambda (time inc) (cl-incf (nth 5 time) inc)))
+         :reg (rx (group (repeat 4 digit)))
+         :len 4
+         :set (speeddating--time-set-year (string-to-number string))
+         :inc #'speeddating--time-inc-year)
    (list "%m"
-         :regexp (rx (group (repeat 2 digit)))
-         :length 2
-         :setter (lambda (time string)
-                   (setf (nth 4 time) (string-to-number string)))
-         :update (lambda (time inc) (cl-incf (nth 4 time) inc)))
+         :reg (rx (group (repeat 2 digit)))
+         :len 2
+         :set (speeddating--time-set-month (string-to-number string))
+         :inc #'speeddating--time-inc-month)
    (list "%d"
-         :regexp (rx (group (repeat 2 digit)))
-         :length 2
-         :setter (lambda (time string)
-                   (setf (nth 3 time) (string-to-number string)))
-         :update (lambda (time inc) (cl-incf (nth 3 time) inc)))
+         :reg (rx (group (repeat 2 digit)))
+         :len 2
+         :set (speeddating--time-set-day (string-to-number string))
+         :inc #'speeddating--time-inc-day)
    (list "%H"
-         :regexp (rx (group (repeat 2 digit)))
-         :length 2
-         :setter (lambda (time string)
-                   (setf (nth 2 time) (string-to-number string)))
-         :update (lambda (time inc) (cl-incf (nth 1 time) inc)))
+         :reg (rx (group (repeat 2 digit)))
+         :len 2
+         :set (speeddating--time-set-hour (string-to-number string))
+         :inc #'speeddating--time-inc-hour)
    (list "%M"
-         :regexp (rx (group (repeat 2 digit)))
-         :length 2
-         :setter (lambda (time string)
-                   (setf (nth 1 time) (string-to-number string)))
-         :update (lambda (time inc) (cl-incf (nth 2 time) inc)))
+         :reg (rx (group (repeat 2 digit)))
+         :len 2
+         :set (speeddating--time-set-minute (string-to-number string))
+         :inc #'speeddating--time-inc-minute)
    (list "%S"
-         :regexp (rx (group (repeat 2 digit)))
-         :length 2
-         :setter (lambda (time string)
-                   (setf (nth 0 time) (string-to-number string)))
-         :update (lambda (time inc) (cl-incf (nth 0 time) inc))))
+         :reg (rx (group (repeat 2 digit)))
+         :len 2
+         :set (speeddating--time-set-sec (string-to-number string))
+         :inc #'speeddating--time-inc-sec))
   "List of (%-spec regexp length set inc).")
 
 (defun speeddating--format-split (string)
@@ -152,7 +158,7 @@ The format uses the same syntax as `format-time-string'."
    (lambda (x)
      (if (= (length x) 2)
          (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
-           (if plist (plist-get plist :regexp) (error "Unsupported format %s" x)))
+           (if plist (plist-get plist :reg) (error "Unsupported format %s" x)))
        (regexp-quote x)))
    (speeddating--format-split string) ""))
 
@@ -166,7 +172,7 @@ The format uses the same syntax as `format-time-string'."
     (lambda (x)
       (if (= (length x) 2)
           (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
-            (if plist (plist-get plist :length) (error "Unsupported format %s" x)))
+            (if plist (plist-get plist :len) (error "Unsupported format %s" x)))
         1))
     (speeddating--format-split string))))
 
@@ -207,12 +213,12 @@ The format uses the same syntax as `format-time-string'."
       (seq-do-indexed
        (lambda (x index)
          (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
-           (funcall (plist-get plist :setter) time (match-string (1+ index)))))
+           (funcall (plist-get plist :set) time (match-string (1+ index)))))
        (speeddating--format-to-list string))
-      (message "Matched raw time: %s" time)
+      ;; (message "Matched raw time: %s" time)
       ;; Normalize time
       (setq time (speeddating--time-normalize time))
-      (message "Normalized time: %s" time)
+      ;; (message "Normalized time: %s" time)
       time)))
 
 (defun speeddating--format-inc-time (string inc)
@@ -228,7 +234,7 @@ The format uses the same syntax as `format-time-string'."
           (cl-incf group))
         (if found
             (let ((plist (alist-get found speeddating--format-spec nil nil #'equal)))
-              (funcall (plist-get plist :update) time inc)
+              (funcall (plist-get plist :inc) time inc)
               (speeddating--format-replace-time string time))
           (user-error "Don't know which field to increase or decrease, try to move point"))))))
 
