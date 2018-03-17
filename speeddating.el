@@ -56,17 +56,60 @@ The format uses the same syntax as `format-time-string'."
 (defvar speeddating--full-weekdays
   '("Monday" "Tuesday" "Wednesday" "Thursday" "Friday" "Saturday" "Sunday"))
 
+;; (SEC MINUTE HOUR DAY MONTH YEAR DOW DST UTCOFF)
+;;   0    1     2    3    4    5    6   7     8
+
 (defvar speeddating--format-spec
   (list
-   (list "%a" (regexp-opt speeddating--abbrev-weekdays t) 3 'dow)
-   (list "%A" (regexp-opt speeddating--full-weekdays t)   9 'dow)
-   (list "%Y" (rx (group (repeat 4 digit)))               4 'year)
-   (list "%m" (rx (group (repeat 2 digit)))               2 'month)
-   (list "%d" (rx (group (repeat 2 digit)))               2 'day)
-   (list "%H" (rx (group (repeat 2 digit)))               2 'hour)
-   (list "%M" (rx (group (repeat 2 digit)))               2 'minute)
-   (list "%S" (rx (group (repeat 2 digit)))               2 'sec))
-  "List of (%-spec regexp length symbol).")
+   (list "%a"
+         :regexp (regexp-opt speeddating--abbrev-weekdays t)
+         :length 3
+         :setter (lambda (time string)
+                   (setf (nth 6 time) (1+ (seq-position speeddating--abbrev-weekdays string))))
+         :update (lambda (time inc) (cl-incf (nth 3 time) inc)))
+   (list "%A"
+         :regexp (regexp-opt speeddating--full-weekdays t)
+         :length 9
+         :setter (lambda (time string)
+                   (setf (nth 6 time) (1+ (seq-position speeddating--full-weekdays string))))
+         :update (lambda (time inc) (cl-incf (nth 3 time) inc)))
+   (list "%Y"
+         :regexp (rx (group (repeat 4 digit)))
+         :length 4
+         :setter (lambda (time string)
+                   (setf (nth 5 time) (string-to-number string)))
+         :update (lambda (time inc) (cl-incf (nth 5 time) inc)))
+   (list "%m"
+         :regexp (rx (group (repeat 2 digit)))
+         :length 2
+         :setter (lambda (time string)
+                   (setf (nth 4 time) (string-to-number string)))
+         :update (lambda (time inc) (cl-incf (nth 4 time) inc)))
+   (list "%d"
+         :regexp (rx (group (repeat 2 digit)))
+         :length 2
+         :setter (lambda (time string)
+                   (setf (nth 3 time) (string-to-number string)))
+         :update (lambda (time inc) (cl-incf (nth 3 time) inc)))
+   (list "%H"
+         :regexp (rx (group (repeat 2 digit)))
+         :length 2
+         :setter (lambda (time string)
+                   (setf (nth 2 time) (string-to-number string)))
+         :update (lambda (time inc) (cl-incf (nth 1 time) inc)))
+   (list "%M"
+         :regexp (rx (group (repeat 2 digit)))
+         :length 2
+         :setter (lambda (time string)
+                   (setf (nth 1 time) (string-to-number string)))
+         :update (lambda (time inc) (cl-incf (nth 2 time) inc)))
+   (list "%S"
+         :regexp (rx (group (repeat 2 digit)))
+         :length 2
+         :setter (lambda (time string)
+                   (setf (nth 0 time) (string-to-number string)))
+         :update (lambda (time inc) (cl-incf (nth 0 time) inc))))
+  "List of (%-spec regexp length set inc).")
 
 (defun speeddating--format-split (string)
   (let ((index 0)
@@ -82,8 +125,6 @@ The format uses the same syntax as `format-time-string'."
         (cl-incf index)))
     (nreverse list)))
 
-;; (sec minute hour day month year dow dst utcoff)
-
 ;; (speeddating--format-split "%Y-%m-%d")
 ;;      => ("%Y" "-" "%m" "-" "%d")
 
@@ -91,8 +132,8 @@ The format uses the same syntax as `format-time-string'."
   (mapconcat
    (lambda (x)
      (if (= (length x) 2)
-         (let ((re (car (alist-get x speeddating--format-spec nil nil #'equal))))
-           (if re re (error "Unsupported format %s" x)))
+         (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
+           (if plist (plist-get plist :regexp) (error "Unsupported format %s" x)))
        (regexp-quote x)))
    (speeddating--format-split string) ""))
 
@@ -105,8 +146,8 @@ The format uses the same syntax as `format-time-string'."
    (mapcar
     (lambda (x)
       (if (= (length x) 2)
-          (let ((len (cadr (alist-get x speeddating--format-spec nil nil #'equal))))
-            (if len len (error "Unsupported format %s" x)))
+          (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
+            (if plist (plist-get plist :length) (error "Unsupported format %s" x)))
         1))
     (speeddating--format-split string))))
 
@@ -114,75 +155,63 @@ The format uses the same syntax as `format-time-string'."
 ;;      => 10
 
 (defun speeddating--format-to-list (string)
-  (delq nil
-        (mapcar
-         (lambda (x)
-           (when (= (length x) 2)
-             (let ((type (caddr (alist-get x speeddating--format-spec nil nil #'equal))))
-               (if type type (error "Unsupported %s" x)))))
-         (speeddating--format-split string))))
+  (seq-filter
+   (lambda (x)
+     (when (= (length x) 2)
+       (if (alist-get x speeddating--format-spec nil nil #'equal)
+           t
+         (error "Unsupported %s" x))))
+   (speeddating--format-split string)))
 
 ;; (speeddating--format-to-list "%Y-%m-%d")
-;;      => (year month day)
+;;      => ("%Y" "%m" "%d")
+
+(defun speeddating--time-normalize (time)
+  (pcase-let ((`(,_sec0 ,_minute0 ,_hour0 ,day0 ,month0 ,year0 ,dow0 ,_dst0 ,utcoff0) (decode-time))
+              (`(,sec ,minute ,hour ,day ,month ,year ,dow ,dst ,utcoff) time))
+    (setq sec (or sec 0)
+          minute (or minute 0)
+          hour (or hour 0)
+          utcoff (or utcoff utcoff0))
+    (setq month (or month month0)
+          year (or year year0))
+    (if (null dow)
+        (setq day (or day day0))
+      (setq day (or day (+ day0 (- dow dow0)))))
+    (list sec minute hour day month year dow dst utcoff)))
 
 (defun speeddating--format-get-time (string)
   (when (thing-at-point-looking-at
          (speeddating--format-to-regexp string)
          (1- (speeddating--format-length string)))
-    (let ((now (decode-time)))
-      (seq-let (sec minute hour day month year dow dst utcoff) now
-        (seq-do-indexed
-         (lambda (elt index)
-           ;; Not working under Lexical binding
-           ;; (set elt (string-to-number (match-string (1+ index))))
-           (let ((val (string-to-number (match-string (1+ index)))))
-             (pcase elt
-               ;; Use backquote instead of regular quote here for compatibility
-               ;; with Emacs 24.5.
-               (`sec    (setq sec    val))
-               (`minute (setq minute val))
-               (`hour   (setq hour   val))
-               (`day    (setq day    val))
-               (`month  (setq month  val))
-               (`year   (setq year   val))
-               (`dow    (setq dow    val))
-               (`dst    (setq dst    val))
-               (`utcoff (setq utcoff val)))))
-         (speeddating--format-to-list string))
-        (list sec minute hour day month year dow dst utcoff)))))
+    (let ((time (list nil nil nil nil nil nil nil nil nil)))
+      (seq-do-indexed
+       (lambda (x index)
+         (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
+           (funcall (plist-get plist :setter) time (match-string (1+ index)))))
+       (speeddating--format-to-list string))
+      (message "Matched raw time: %s" time)
+      ;; Normalize time
+      (setq time (speeddating--time-normalize time))
+      (message "Normalized time: %s" time)
+      time)))
 
 (defun speeddating--format-inc-time (string inc)
   (let ((time (speeddating--format-get-time string)))
     (when time
-      (seq-let (sec minute hour day month year dow dst utcoff) time
-        (let ((list (speeddating--format-to-list string))
-              (group 1)
-              (found nil))
-          (while (and list (null found))
-            (when (speeddating--on-subexp-p group)
-              (setq found (car list)))
-            (pop list)
-            (cl-incf group))
-          (if found
-              ;; Not working under Lexical binding
-              ;; (set found (1+ (eval found)))
-              (pcase found
-                ;; Use backquote instead of regular quote here for compatibility
-                ;; with Emacs 24.5.
-                (`sec    (cl-incf sec    inc))
-                (`minute (cl-incf minute inc))
-                (`hour   (cl-incf hour   inc))
-                (`day    (cl-incf day    inc))
-                (`month  (cl-incf month  inc))
-                (`year   (cl-incf year   inc))
-                (`dow    (cl-incf dow    inc))
-                (`dst    (cl-incf dst    inc))
-                (`utcoff (cl-incf utcoff inc)))
-            (user-error (concat "Don't know which field to increase or decrease, "
-                                "try to move point"))))
-        (speeddating--format-replace-time
-         string
-         (list sec minute hour day month year dow dst utcoff))))))
+      (let ((list (speeddating--format-to-list string))
+            (group 1)
+            (found nil))
+        (while (and list (null found))
+          (when (speeddating--on-subexp-p group)
+            (setq found (car list)))
+          (pop list)
+          (cl-incf group))
+        (if found
+            (let ((plist (alist-get found speeddating--format-spec nil nil #'equal)))
+              (funcall (plist-get plist :update) time inc)
+              (speeddating--format-replace-time string time))
+          (user-error "Don't know which field to increase or decrease, try to move point"))))))
 
 (defun speeddating--format-replace-time (string time)
   (let ((new (format-time-string string (apply #'encode-time time)))
