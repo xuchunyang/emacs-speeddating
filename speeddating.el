@@ -50,7 +50,7 @@ The format uses the same syntax as `format-time-string'."
 
 ;;;; Internal functions
 
-(defun speeddating--format-string-split (string)
+(defun speeddating--format-split (string)
   (let ((index 0)
         (end (length string))
         (list ()))
@@ -64,10 +64,10 @@ The format uses the same syntax as `format-time-string'."
         (cl-incf index)))
     (nreverse list)))
 
-;; (speeddating--format-string-split "%Y-%m-%d")
+;; (speeddating--format-split "%Y-%m-%d")
 ;;      => ("%Y" "-" "%m" "-" "%d")
 
-(defun speeddating--format-string-to-regexp (string)
+(defun speeddating--format-to-regexp (string)
   (let ((4-digits (rx (group (repeat 4 digit))))
         (2-digits (rx (group (repeat 2 digit)))))
     (mapconcat
@@ -82,12 +82,12 @@ The format uses the same syntax as `format-time-string'."
              ("%S" 2-digits)
              (_    (error "Unsupported %s" x)))
          (regexp-quote x)))
-     (speeddating--format-string-split string) "")))
+     (speeddating--format-split string) "")))
 
-;; (speeddating--format-string-to-regexp "%Y-%m-%d")
+;; (speeddating--format-to-regexp "%Y-%m-%d")
 ;;      => "\\([[:digit:]]\\{4\\}\\)-\\([[:digit:]]\\{2\\}\\)-\\([[:digit:]]\\{2\\}\\)"
 
-(defun speeddating--format-string-length (string)
+(defun speeddating--format-length (string)
   (apply
    #'+
    (mapcar
@@ -102,12 +102,12 @@ The format uses the same syntax as `format-time-string'."
             ("%S" 2)
             (_    (error "Unsupported %s" x)))
         1))
-    (speeddating--format-string-split string))))
+    (speeddating--format-split string))))
 
-;; (speeddating--format-string-length "%Y-%m-%d")
+;; (speeddating--format-length "%Y-%m-%d")
 ;;      => 10
 
-(defun speeddating--format-string-to-list (string)
+(defun speeddating--format-to-list (string)
   (delq nil
         (mapcar
          (lambda (x)
@@ -120,15 +120,15 @@ The format uses the same syntax as `format-time-string'."
                ("%M" 'minute)
                ("%S" 'sec)
                (_    (error "Unsupported %s" x)))))
-         (speeddating--format-string-split string))))
+         (speeddating--format-split string))))
 
-;; (speeddating--format-string-to-list "%Y-%m-%d")
+;; (speeddating--format-to-list "%Y-%m-%d")
 ;;      => (year month day)
 
-(defun speeddating--format-string-get-time (string)
+(defun speeddating--format-get-time (string)
   (when (thing-at-point-looking-at
-         (speeddating--format-string-to-regexp string)
-         (1- (speeddating--format-string-length string)))
+         (speeddating--format-to-regexp string)
+         (1- (speeddating--format-length string)))
     (let ((now (decode-time)))
       (seq-let (sec minute hour day month year dow dst utcoff) now
         (seq-do-indexed
@@ -148,14 +148,14 @@ The format uses the same syntax as `format-time-string'."
                (`dow    (setq dow    val))
                (`dst    (setq dst    val))
                (`utcoff (setq utcoff val)))))
-         (speeddating--format-string-to-list string))
+         (speeddating--format-to-list string))
         (list sec minute hour day month year dow dst utcoff)))))
 
-(defun speeddating--format-string-inc-time (string inc)
-  (let ((time (speeddating--format-string-get-time string)))
+(defun speeddating--format-inc-time (string inc)
+  (let ((time (speeddating--format-get-time string)))
     (when time
       (seq-let (sec minute hour day month year dow dst utcoff) time
-        (let ((list (speeddating--format-string-to-list string))
+        (let ((list (speeddating--format-to-list string))
               (group 1)
               (found nil))
           (while (and list (null found))
@@ -180,11 +180,11 @@ The format uses the same syntax as `format-time-string'."
                 (`utcoff (cl-incf utcoff inc)))
             (user-error (concat "Don't know which field to increase or decrease, "
                                 "try to move point"))))
-        (speeddating--format-string-replace-time
+        (speeddating--format-replace-time
          string
          (list sec minute hour day month year dow dst utcoff))))))
 
-(defun speeddating--format-string-replace-time (string time)
+(defun speeddating--format-replace-time (string time)
   (let ((new (format-time-string string (apply #'encode-time time)))
         (old-point (point)))
     (delete-region (match-beginning 0) (match-end 0))
@@ -205,7 +205,7 @@ The format uses the same syntax as `format-time-string'."
   (let ((formats (copy-sequence speeddating-formats))
         (found nil))
     (while (and formats (null found))
-      (when (speeddating--format-string-inc-time (pop formats) inc)
+      (when (speeddating--format-inc-time (pop formats) inc)
         (setq found t)))
     (unless found
       (user-error
