@@ -42,9 +42,13 @@
   :group 'convenience)
 
 (defcustom speeddating-formats
-  '("%a, %d %b %Y %H:%M:%S %z"          ; Email, "date --rfc-email"
-    "%d %B %Y"
-    "%Y-%m-%d"
+  '("%a, %d %b %Y %H:%M:%S %z" ; Sun, 18 Mar 2018 01:20:20 +0800  Email, date --rfc-email
+    "%a %b %d %H:%M:%S %Y %z"  ; Sun Mar 18 00:57:15 2018 +0800   Git log
+    "%Y-%m-%dT%H:%M:%S%:z"     ; 2018-03-18T02:54:38+08:00        ISO 8601, date --iso-8601=seconds
+    "%A, %B %d, %Y"            ; Sunday, March 18, 2018
+    "%d %B %Y"                 ; 18 March 2018
+    "%Y-%m-%d"                 ; 2018-03-18
+    "%Y/%m/%d"                 ; 2018/03/18
     "%H:%M:%S")
   "The date & time formats list.
 The format uses the same syntax as `format-time-string'."
@@ -67,7 +71,6 @@ The format uses the same syntax as `format-time-string'."
 
 ;; (SEC MINUTE HOUR DAY MONTH YEAR DOW DST UTCOFF)
 ;;   0    1     2    3    4    5    6   7     8
-
 
 (defun speeddating--time-inc-sec    (time inc) (cl-incf (nth 0 time) inc))
 (defun speeddating--time-inc-minute (time inc) (cl-incf (nth 1 time) inc))
@@ -146,21 +149,64 @@ The format uses the same syntax as `format-time-string'."
                   (setf (nth 8 time) (funcall sign (+ (* hour 60 60) (* minute 60))))))
          :inc (lambda (_time _inc)
                 (user-error
+                 "Increasing or decreasing time zone is not yet supported")))
+   (list "%:z"
+         :reg (rx (group (or "-" "+") (repeat 2 digit) ":" (repeat 2 digit)))
+         :len (length "+08:00")
+         :set (lambda (time string)
+                (let ((sign (intern (substring string 0 1)))
+                      (hour (string-to-number (substring string 1 3)))
+                      (minute (string-to-number (substring string 4))))
+                  (setf (nth 8 time) (funcall sign (+ (* hour 60 60) (* minute 60))))))
+         :inc (lambda (_time _inc)
+                (user-error
+                 "Increasing or decreasing time zone is not yet supported")))
+   (list "%::z"
+         :reg (rx (group (or "-" "+") (repeat 2 digit) ":" (repeat 2 digit) ":" (repeat 2 digit)))
+         :len (length "+08:00:00")
+         :set (lambda (time string)
+                (let ((sign (intern (substring string 0 1)))
+                      (hour (string-to-number (substring string 1 3)))
+                      (minute (string-to-number (substring string 4 6)))
+                      (second (string-to-number (substring string 6))))
+                  (setf (nth 8 time) (funcall sign (+ (* hour 60 60) (* minute 60) second)))))
+         :inc (lambda (_time _inc)
+                (user-error
+                 "Increasing or decreasing time zone is not yet supported")))
+   (list "%:::z"
+         :reg (rx (group (or "-" "+") (repeat 2 digit)))
+         :len (length "+08")
+         :set (lambda (time string)
+                (let ((sign (intern (substring string 0 1)))
+                      (hour (string-to-number (substring string 1 3))))
+                  (setf (nth 8 time) (funcall sign (* hour 60 60)))))
+         :inc (lambda (_time _inc)
+                (user-error
                  "Increasing or decreasing time zone is not yet supported"))))
   "List of (%-spec regexp length set inc).")
 
 (defun speeddating--format-split (string)
-  (let ((index 0)
-        (end (length string))
+  (let ((%-specs (mapcar #'car speeddating--format-spec))
         (list ()))
-    (while (< index end)
-      (if (and (= (aref string index) ?%)
-               (< (1+ index) end))
-          (progn
-            (push (substring string index (+ index 2)) list)
-            (cl-incf index 2))
-        (push (string (aref string index)) list)
-        (cl-incf index)))
+    (while (> (length string) 0)
+      (if (string-prefix-p "%" string)
+          (let ((%-spec (seq-find
+                         (lambda (prefix) (string-prefix-p prefix string))
+                         %-specs)))
+            (cond (%-spec
+                   (push %-spec list)
+                   (setq string (substring string (length %-spec))))
+                  ((string-prefix-p "%%" string)
+                   (push "%" list)
+                   (push "%" list)
+                   (setq string (substring string (length "%%"))))
+                  ((string-prefix-p "%t" string)
+                   (push "%" list)
+                   (push "t" list)
+                   (setq string (substring string (length "%t"))))
+                  (t (error "Unsupported format %s" string))))
+        (push (substring string 0 1) list)
+        (setq string (substring string 1))))
     (nreverse list)))
 
 ;; (speeddating--format-split "%Y-%m-%d")
@@ -169,10 +215,10 @@ The format uses the same syntax as `format-time-string'."
 (defun speeddating--format-to-regexp (string)
   (mapconcat
    (lambda (x)
-     (if (= (length x) 2)
-         (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
-           (if plist (plist-get plist :reg) (error "Unsupported format %s" x)))
-       (regexp-quote x)))
+     (if (= (length x) 1)
+         (regexp-quote x)
+       (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
+         (if plist (plist-get plist :reg) (error "Unsupported format %s" x)))))
    (speeddating--format-split string) ""))
 
 ;; (speeddating--format-to-regexp "%Y-%m-%d")
@@ -183,10 +229,10 @@ The format uses the same syntax as `format-time-string'."
    #'+
    (mapcar
     (lambda (x)
-      (if (= (length x) 2)
-          (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
-            (if plist (plist-get plist :len) (error "Unsupported format %s" x)))
-        1))
+      (if (= (length x) 1)
+          1
+        (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
+          (if plist (plist-get plist :len) (error "Unsupported format %s" x)))))
     (speeddating--format-split string))))
 
 ;; (speeddating--format-length "%Y-%m-%d")
@@ -195,7 +241,7 @@ The format uses the same syntax as `format-time-string'."
 (defun speeddating--format-to-list (string)
   (seq-filter
    (lambda (x)
-     (when (= (length x) 2)
+     (when (> (length x) 1)
        (if (alist-get x speeddating--format-spec nil nil #'equal)
            t
          (error "Unsupported %s" x))))
