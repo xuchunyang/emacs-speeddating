@@ -41,7 +41,8 @@
   "Increasing or decreasing dates & times."
   :group 'convenience)
 
-(defcustom speeddating-formats '("%Y-%m-%d"
+(defcustom speeddating-formats '("%d %B %Y"
+                                 "%Y-%m-%d"
                                  "%H:%M:%S")
   "The date & time formats list.
 The format uses the same syntax as `format-time-string'."
@@ -55,6 +56,12 @@ The format uses the same syntax as `format-time-string'."
 
 (defvar speeddating--full-weekdays
   '("Monday" "Tuesday" "Wednesday" "Thursday" "Friday" "Saturday" "Sunday"))
+
+(defvar speeddating--abbrev-months
+  '("Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"))
+
+(defvar speeddating--full-months
+  '("January" "February" "March" "April" "May" "June" "July" "August" "September" "October" "November" "December"))
 
 ;; (SEC MINUTE HOUR DAY MONTH YEAR DOW DST UTCOFF)
 ;;   0    1     2    3    4    5    6   7     8
@@ -73,6 +80,18 @@ The format uses the same syntax as `format-time-string'."
          :setter (lambda (time string)
                    (setf (nth 6 time) (1+ (seq-position speeddating--full-weekdays string))))
          :update (lambda (time inc) (cl-incf (nth 3 time) inc)))
+   (list "%b"
+         :regexp (regexp-opt speeddating--abbrev-months t)
+         :length 3
+         :setter (lambda (time string)
+                   (setf (nth 4 time) (1+ (seq-position speeddating--abbrev-months string))))
+         :update (lambda (time inc) (cl-incf (nth 4 time) inc)))
+   (list "%B"
+         :regexp (regexp-opt speeddating--full-months t)
+         :length 9
+         :setter (lambda (time string)
+                   (setf (nth 4 time) (1+ (seq-position speeddating--full-months string))))
+         :update (lambda (time inc) (cl-incf (nth 4 time) inc)))
    (list "%Y"
          :regexp (rx (group (repeat 4 digit)))
          :length 4
