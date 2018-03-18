@@ -49,6 +49,7 @@
     "%A, %B %d, %Y"            ; Sunday, March 18, 2018
     "%d %B %Y"                 ; 18 March 2018
     "%d %b %Y"                 ; 18 Mar 2018
+    "%B %-d, %Y"               ; April 9, 2018
     "%Y-%m-%d"                 ; 2018-03-18
     "%Y/%m/%d"                 ; 2018/03/18
     "%H:%M:%S"
@@ -134,6 +135,11 @@ The format uses the same syntax as `format-time-string'."
          :inc #'speeddating--time-inc-day)
    (list "%_d"
          :reg (rx (group (repeat 2 digit)))
+         :len 2
+         :set (speeddating--time-set-day (string-to-number string))
+         :inc #'speeddating--time-inc-day)
+   (list "%-d"
+         :reg (rx (group (repeat 1 2 digit)))
          :len 2
          :set (speeddating--time-set-day (string-to-number string))
          :inc #'speeddating--time-inc-day)
