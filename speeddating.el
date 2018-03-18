@@ -302,6 +302,11 @@ The format uses the same syntax as `format-time-string'."
 ;; (speeddating--format-to-list "%Y-%m-%d")
 ;;      => ("%Y" "%m" "%d")
 
+(defun speeddating--looking-at (format-string)
+  (thing-at-point-looking-at
+   (speeddating--format-to-regexp format-string)
+   (1- (speeddating--format-length format-string))))
+
 (defun speeddating--time-normalize (time)
   (pcase-let ((`(,_sec0 ,_minute0 ,_hour0 ,day0 ,month0 ,year0 ,dow0 ,_dst0 ,utcoff0) (decode-time))
               (`(,sec ,minute ,hour ,day ,month ,year ,dow ,dst ,utcoff) time))
@@ -316,14 +321,12 @@ The format uses the same syntax as `format-time-string'."
       (setq day (or day (+ day0 (- dow dow0)))))
     (list sec minute hour day month year dow dst utcoff)))
 
-(defun speeddating--format-get-time (string)
-  (when (thing-at-point-looking-at
-         (speeddating--format-to-regexp string)
-         (1- (speeddating--format-length string)))
-    (speeddating--log "1. '%s' =~ '%s'" (match-string 0) string)
+(defun speeddating--time-at-point-1 (format-string)
+  (when (speeddating--looking-at format-string)
+    (speeddating--log "1. '%s' =~ '%s'" (match-string 0) format-string)
     (let ((time (list nil nil nil nil nil nil nil nil nil)))
       ;; `seq-do-indexed' is not available in Emacs 25
-      (cl-loop for x in (speeddating--format-to-list string)
+      (cl-loop for x in (speeddating--format-to-list format-string)
                for index from 1
                do (let ((plist (speeddating--alist-get x speeddating--format-spec)))
                     (funcall (plist-get plist :set) time (match-string index))))
@@ -333,34 +336,40 @@ The format uses the same syntax as `format-time-string'."
       (speeddating--log "3. %s" time)
       time)))
 
+(defun speeddating-time-at-point ()
+  (seq-some
+   (lambda (format-string)
+     (let ((time (speeddating--time-at-point-1 format-string)))
+       (when time
+         (list format-string time))))
+   speeddating-formats))
+
 (defun speeddating--on-subexp-p (num)
   (and (>= (point) (match-beginning num))
        (<  (point) (match-end num))))
 
-(defun speeddating--format-replace-time (string time)
-  (let ((new (format-time-string string (apply #'encode-time time)))
+(defun speeddating--replace (format-string time)
+  (let ((new (format-time-string format-string (apply #'encode-time time)))
         (old-point (point)))
     (speeddating--log "4. '%s' => '%s'\n%c" (match-string 0) new 12)
     (delete-region (match-beginning 0) (match-end 0))
     (insert new)
     (goto-char old-point)))
 
-(defun speeddating--format-inc-time (string inc)
-  (let ((time (speeddating--format-get-time string)))
-    (when time
-      (let ((list (speeddating--format-to-list string))
-            (group 1)
-            (found nil))
-        (while (and list (null found))
-          (when (speeddating--on-subexp-p group)
-            (setq found (car list)))
-          (pop list)
-          (cl-incf group))
-        (if found
-            (let ((plist (speeddating--alist-get found speeddating--format-spec)))
-              (funcall (plist-get plist :inc) time inc)
-              (speeddating--format-replace-time string time))
-          (user-error "Don't know which field to increase or decrease, try to move point"))))))
+(defun speeddating--increase-1 (format-string time inc)
+  (let ((list (speeddating--format-to-list format-string))
+        (group 1)
+        (found nil))
+    (while (and list (null found))
+      (when (speeddating--on-subexp-p group)
+        (setq found (car list)))
+      (pop list)
+      (cl-incf group))
+    (if found
+        (let ((plist (speeddating--alist-get found speeddating--format-spec)))
+          (funcall (plist-get plist :inc) time inc)
+          (speeddating--replace format-string time))
+      (user-error "Don't know which field to increase or decrease, try to move point"))))
 
 ;;;; User commands
 
@@ -368,12 +377,9 @@ The format uses the same syntax as `format-time-string'."
 (defun speeddating-increase (inc)
   "Increase date and time at point by INC."
   (interactive "*p")
-  (let ((formats (copy-sequence speeddating-formats))
-        (found nil))
-    (while (and formats (null found))
-      (when (speeddating--format-inc-time (pop formats) inc)
-        (setq found t)))
-    (unless found
+  (let ((format-string-and-time (speeddating-time-at-point)))
+    (if format-string-and-time
+        (apply #'speeddating--increase-1 `(,@format-string-and-time ,inc))
       (user-error
        "No date and time at point or speeddating doesn't yet understand its format"))))
 
