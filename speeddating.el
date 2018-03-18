@@ -30,10 +30,11 @@
 
 ;;;; Requirements
 
-(require 'rx)
-(require 'thingatpt)
 (require 'cl-lib)
 (require 'seq)
+(require 'pcase)
+(require 'rx)
+(require 'thingatpt)                    ; `thing-at-point-looking-at'
 
 ;;;; Custom options
 
