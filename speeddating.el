@@ -1,10 +1,11 @@
-;;; speeddating.el --- Increasing or decreasing dates & times  -*- lexical-binding: t; -*-
+;;; speeddating.el --- Increase date and time at point  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2018  Xu Chunyang
 
 ;; Author: Xu Chunyang <mail@xuchunyang.me>
 ;; Homepage: https://github.com/xuchunyang/emacs-speeddating
 ;; Package-Requires: ((emacs "25"))
+;; Compatibility: GNU Emacs 25
 ;; Keywords: date time
 ;; Created: Thu, 15 Mar 2018 15:17:39 +0800
 ;; Version: 0
@@ -24,7 +25,7 @@
 
 ;;; Commentary:
 
-;; Increasing or decreasing dates and time at point.
+;; Increase date and time at point
 
 ;;; Code:
 
@@ -39,7 +40,7 @@
 ;;;; Custom options
 
 (defgroup speeddating nil
-  "Increasing or decreasing dates & times."
+  "Increase date and time at point."
   :group 'convenience)
 
 (defcustom speeddating-formats
@@ -55,7 +56,7 @@
     "%Y/%m/%d"                 ; 2018/03/18
     "%H:%M:%S"
     "%A")
-  "The date & time formats list.
+  "Date and time formats.
 The format uses the same syntax as `format-time-string'."
   :type '(repeat (choice string))
   :group 'speeddating)
@@ -65,6 +66,19 @@ The format uses the same syntax as `format-time-string'."
 ;; The built-in `alist-get' allows only `eq' for testing key before 26.1
 (defun speeddating--alist-get (key alist)
   (cdr (assoc key alist)))
+
+(defvar speeddating--log-buffer "*Debug Speeddating Log*")
+;; (get-buffer-create speeddating--log-buffer)
+
+(defun speeddating--log (format-string &rest args)
+  (let ((buffer (get-buffer speeddating--log-buffer)))
+    (when buffer
+      (with-current-buffer buffer
+        (goto-char (point-max))
+        (insert
+         (format "%s %s\n"
+                 (propertize (format-time-string "%H:%M:%S") 'face 'font-lock-string-face)
+                 (apply #'format (cons format-string args))))))))
 
 ;;;; Internal variables and functions
 
@@ -319,6 +333,18 @@ The format uses the same syntax as `format-time-string'."
       (speeddating--log "3. %s" time)
       time)))
 
+(defun speeddating--on-subexp-p (num)
+  (and (>= (point) (match-beginning num))
+       (<  (point) (match-end num))))
+
+(defun speeddating--format-replace-time (string time)
+  (let ((new (format-time-string string (apply #'encode-time time)))
+        (old-point (point)))
+    (speeddating--log "4. '%s' => '%s'\n%c" (match-string 0) new 12)
+    (delete-region (match-beginning 0) (match-end 0))
+    (insert new)
+    (goto-char old-point)))
+
 (defun speeddating--format-inc-time (string inc)
   (let ((time (speeddating--format-get-time string)))
     (when time
@@ -336,36 +362,11 @@ The format uses the same syntax as `format-time-string'."
               (speeddating--format-replace-time string time))
           (user-error "Don't know which field to increase or decrease, try to move point"))))))
 
-(defun speeddating--format-replace-time (string time)
-  (let ((new (format-time-string string (apply #'encode-time time)))
-        (old-point (point)))
-    (speeddating--log "4. '%s' => '%s'\n%c" (match-string 0) new 12)
-    (delete-region (match-beginning 0) (match-end 0))
-    (insert new)
-    (goto-char old-point)))
-
-(defun speeddating--on-subexp-p (num)
-  "Return t if the point is on the subexpression NUM."
-  (and (>= (point) (match-beginning num))
-       (<  (point) (match-end num))))
-
-(defvar speeddating--log-buffer "*Debug Speeddating Log*") ; (get-buffer-create speeddating--log-buffer)
-
-(defun speeddating--log (format-string &rest args)
-  (let ((buffer (get-buffer speeddating--log-buffer)))
-    (when buffer
-      (with-current-buffer buffer
-        (goto-char (point-max))
-        (insert
-         (format "%s %s\n"
-                 (propertize (format-time-string "%H:%M:%S") 'face 'font-lock-string-face)
-                 (apply #'format (cons format-string args))))))))
-
 ;;;; User commands
 
 ;;;###autoload
 (defun speeddating-increase (inc)
-  "Increase the date and time at point by INC."
+  "Increase date and time at point by INC."
   (interactive "*p")
   (let ((formats (copy-sequence speeddating-formats))
         (found nil))
@@ -378,7 +379,7 @@ The format uses the same syntax as `format-time-string'."
 
 ;;;###autoload
 (defun speeddating-decrease (dec)
-  "Decrease the date and time at point by DEC."
+  "Decrease date and time at point by DEC."
   (interactive "*p")
   (speeddating-increase (- dec)))
 
