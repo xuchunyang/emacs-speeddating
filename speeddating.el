@@ -391,5 +391,11 @@ The format uses the same syntax as `format-time-string'."
   (interactive "*p")
   (speeddating-increase (- dec)))
 
+(defun speeddating-parse-time-string (string)
+  (with-temp-buffer
+    (insert string)
+    (goto-char (point-min))
+    (speeddating-time-at-point)))
+
 (provide 'speeddating)
 ;;; speeddating.el ends here
