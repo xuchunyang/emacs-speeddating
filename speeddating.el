@@ -312,8 +312,7 @@ The format uses the same syntax as `format-time-string'."
       (cl-loop for x in (speeddating--format-to-list string)
                for index from 1
                do (let ((plist (speeddating--alist-get x speeddating--format-spec)))
-                    (funcall (plist-get plist :set) time (match-string index))
-                    (cl-incf index)))
+                    (funcall (plist-get plist :set) time (match-string index))))
       (speeddating--log "2. %s" time)
       ;; Normalize time
       (setq time (speeddating--time-normalize time))
