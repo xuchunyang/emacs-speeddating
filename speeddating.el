@@ -349,7 +349,7 @@ The format uses the same syntax as `format-time-string'."
        (<  (point) (match-end num))))
 
 (defun speeddating--replace (format-string time)
-  (let ((new (format-time-string format-string (apply #'encode-time time)))
+  (let ((new (format-time-string format-string (apply #'encode-time time) (nth 8 time)))
         (old-point (point)))
     (speeddating--log "4. '%s' => '%s'\n%c" (match-string 0) new 12)
     (delete-region (match-beginning 0) (match-end 0))
