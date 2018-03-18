@@ -48,6 +48,10 @@
     "%a %b %d %H:%M:%S %Y %z"  ; Sun Mar 18 00:57:15 2018 +0800   Git log
     "%Y-%m-%dT%H:%M:%S%:z"     ; 2018-03-18T02:54:38+08:00        ISO 8601, date --iso-8601=seconds
     "%a %b %_d %H:%M:%S %Z %Y" ; Sun Mar 18 03:40:23 CST 2018     date
+    "%a %b %-d %H:%M:%S %Y %Z" ; Mon Mar 19 00:53:56 2018 CST     Reddit
+    "%-d %B %Y, at %H:%M"      ; 19 March 2018, at 01:02          Wikipedia
+    ;; TODO Mar 19, 2018, 12:41 AM GMT+8 GitHub
+    ;; TODO 2018-03-18T16:41:48Z
     "%Y-%m-%d %H:%M:%S"        ; 2018-03-18 20:17:19
     "%Y-%m-%d %H:%M"           ; 2018-03-18 20:17
     "%A, %B %d, %Y"            ; Sunday, March 18, 2018
