@@ -50,7 +50,8 @@
     "%d %B %Y"                 ; 18 March 2018
     "%Y-%m-%d"                 ; 2018-03-18
     "%Y/%m/%d"                 ; 2018/03/18
-    "%H:%M:%S")
+    "%H:%M:%S"
+    "%A")
   "The date & time formats list.
 The format uses the same syntax as `format-time-string'."
   :type '(repeat (choice string))
