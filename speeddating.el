@@ -60,6 +60,12 @@ The format uses the same syntax as `format-time-string'."
   :type '(repeat (choice string))
   :group 'speeddating)
 
+;;;; Utility functions
+
+;; The built-in `alist-get' allows only `eq' for testing key before 26.1
+(defun speeddating--alist-get (key alist)
+  (cdr (assoc key alist)))
+
 ;;;; Internal variables and functions
 
 (defvar speeddating--abbrev-weekdays
@@ -249,7 +255,7 @@ The format uses the same syntax as `format-time-string'."
    (lambda (x)
      (if (= (length x) 1)
          (regexp-quote x)
-       (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
+       (let ((plist (speeddating--alist-get x speeddating--format-spec)))
          (if plist (plist-get plist :reg) (error "Unsupported format %s" x)))))
    (speeddating--format-split string) ""))
 
@@ -263,7 +269,7 @@ The format uses the same syntax as `format-time-string'."
     (lambda (x)
       (if (= (length x) 1)
           1
-        (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
+        (let ((plist (speeddating--alist-get x speeddating--format-spec)))
           (if plist (plist-get plist :len) (error "Unsupported format %s" x)))))
     (speeddating--format-split string))))
 
@@ -274,7 +280,7 @@ The format uses the same syntax as `format-time-string'."
   (seq-filter
    (lambda (x)
      (when (> (length x) 1)
-       (if (alist-get x speeddating--format-spec nil nil #'equal)
+       (if (speeddating--alist-get x speeddating--format-spec)
            t
          (error "Unsupported %s" x))))
    (speeddating--format-split string)))
@@ -304,7 +310,7 @@ The format uses the same syntax as `format-time-string'."
     (let ((time (list nil nil nil nil nil nil nil nil nil)))
       (seq-do-indexed
        (lambda (x index)
-         (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
+         (let ((plist (speeddating--alist-get x speeddating--format-spec)))
            (funcall (plist-get plist :set) time (match-string (1+ index)))))
        (speeddating--format-to-list string))
       (speeddating--log "2. %s" time)
@@ -325,7 +331,7 @@ The format uses the same syntax as `format-time-string'."
           (pop list)
           (cl-incf group))
         (if found
-            (let ((plist (alist-get found speeddating--format-spec nil nil #'equal)))
+            (let ((plist (speeddating--alist-get found speeddating--format-spec)))
               (funcall (plist-get plist :inc) time inc)
               (speeddating--format-replace-time string time))
           (user-error "Don't know which field to increase or decrease, try to move point"))))))
