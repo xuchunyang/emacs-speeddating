@@ -308,11 +308,12 @@ The format uses the same syntax as `format-time-string'."
          (1- (speeddating--format-length string)))
     (speeddating--log "1. '%s' =~ '%s'" (match-string 0) string)
     (let ((time (list nil nil nil nil nil nil nil nil nil)))
-      (seq-do-indexed
-       (lambda (x index)
-         (let ((plist (speeddating--alist-get x speeddating--format-spec)))
-           (funcall (plist-get plist :set) time (match-string (1+ index)))))
-       (speeddating--format-to-list string))
+      ;; `seq-do-indexed' is not available in Emacs 25
+      (cl-loop for x in (speeddating--format-to-list string)
+               for index from 1
+               do (let ((plist (speeddating--alist-get x speeddating--format-spec)))
+                    (funcall (plist-get plist :set) time (match-string index))
+                    (cl-incf index)))
       (speeddating--log "2. %s" time)
       ;; Normalize time
       (setq time (speeddating--time-normalize time))
