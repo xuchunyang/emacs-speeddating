@@ -86,7 +86,7 @@ The format uses the same syntax as `format-time-string'."
 (defmacro speeddating--time-set-day    (val) `(lambda (time string) (setf (nth 3 time) ,val)))
 (defmacro speeddating--time-set-month  (val) `(lambda (time string) (setf (nth 4 time) ,val)))
 (defmacro speeddating--time-set-year   (val) `(lambda (time string) (setf (nth 5 time) ,val)))
-(defmacro speeddating--time-set-dow    (val) `(lambda (time string) (setf (nth 5 time) ,val)))
+(defmacro speeddating--time-set-dow    (val) `(lambda (time string) (setf (nth 6 time) ,val)))
 
 (defvar speeddating--format-spec
   (list
