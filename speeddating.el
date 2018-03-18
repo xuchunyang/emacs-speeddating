@@ -48,6 +48,7 @@
     "%a %b %_d %H:%M:%S %Z %Y" ; Sun Mar 18 03:40:23 CST 2018     date
     "%A, %B %d, %Y"            ; Sunday, March 18, 2018
     "%d %B %Y"                 ; 18 March 2018
+    "%d %b %Y"                 ; 18 Mar 2018
     "%Y-%m-%d"                 ; 2018-03-18
     "%Y/%m/%d"                 ; 2018/03/18
     "%H:%M:%S"
