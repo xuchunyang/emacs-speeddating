@@ -282,16 +282,17 @@ The format uses the same syntax as `format-time-string'."
   (when (thing-at-point-looking-at
          (speeddating--format-to-regexp string)
          (1- (speeddating--format-length string)))
+    (speeddating--log "1. '%s' =~ '%s'" (match-string 0) string)
     (let ((time (list nil nil nil nil nil nil nil nil nil)))
       (seq-do-indexed
        (lambda (x index)
          (let ((plist (alist-get x speeddating--format-spec nil nil #'equal)))
            (funcall (plist-get plist :set) time (match-string (1+ index)))))
        (speeddating--format-to-list string))
-      ;; (message "Matched raw time: %s" time)
+      (speeddating--log "2. %s" time)
       ;; Normalize time
       (setq time (speeddating--time-normalize time))
-      ;; (message "Normalized time: %s" time)
+      (speeddating--log "3. %s" time)
       time)))
 
 (defun speeddating--format-inc-time (string inc)
@@ -314,6 +315,7 @@ The format uses the same syntax as `format-time-string'."
 (defun speeddating--format-replace-time (string time)
   (let ((new (format-time-string string (apply #'encode-time time)))
         (old-point (point)))
+    (speeddating--log "4. '%s' => '%s'\n%c" (match-string 0) new 12)
     (delete-region (match-beginning 0) (match-end 0))
     (insert new)
     (goto-char old-point)))
@@ -322,6 +324,18 @@ The format uses the same syntax as `format-time-string'."
   "Return t if the point is on the subexpression NUM."
   (and (>= (point) (match-beginning num))
        (<  (point) (match-end num))))
+
+(defvar speeddating--log-buffer "*Debug Speeddating Log*") ; (get-buffer-create speeddating--log-buffer)
+
+(defun speeddating--log (format-string &rest args)
+  (let ((buffer (get-buffer speeddating--log-buffer)))
+    (when buffer
+      (with-current-buffer buffer
+        (goto-char (point-max))
+        (insert
+         (format "%s %s\n"
+                 (propertize (format-time-string "%H:%M:%S") 'face 'font-lock-string-face)
+                 (apply #'format (cons format-string args))))))))
 
 ;;;; User commands
 
