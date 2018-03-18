@@ -1,9 +1,15 @@
 EMACS ?= emacs
 
-all: speeddating.elc
+all: version speeddating.elc
 
-speeddating.elc : speeddating.el
-	$(EMACS) -Q --batch --eval "(setq byte-compile-error-on-warn t)" -f batch-byte-compile $<
+version:
+	@printf "EMACS=$(EMACS)\n"
+	@$(EMACS) --version | head -1
+
+.PHONY: speeddating.elc
+speeddating.elc: speeddating.el
+	@printf "Compiling $<\n"
+	@$(EMACS) -Q --batch --eval "(setq byte-compile-error-on-warn t)" -f batch-byte-compile $<
 
 clean:
 	@rm -f speeddating.elc
