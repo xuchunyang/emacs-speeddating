@@ -43,6 +43,7 @@
   "Increase date and time at point."
   :group 'convenience)
 
+;; (info "(elisp) Time Parsing")
 (defcustom speeddating-formats
   '("%a, %d %b %Y %H:%M:%S %z" ; Sun, 18 Mar 2018 01:20:20 +0800  Email, date --rfc-email
     "%a %b %d %H:%M:%S %Y %z"  ; Sun Mar 18 00:57:15 2018 +0800   Git log
@@ -103,6 +104,7 @@ The format uses the same syntax as `format-time-string'."
 ;; (SEC MINUTE HOUR DAY MONTH YEAR DOW DST UTCOFF)
 ;;   0    1     2    3    4    5    6   7     8
 
+;; TODO: Use `time-add' instead ?
 (defun speeddating--time-inc-sec    (time inc) (cl-incf (nth 0 time) inc))
 (defun speeddating--time-inc-minute (time inc) (cl-incf (nth 1 time) inc))
 (defun speeddating--time-inc-hour   (time inc) (cl-incf (nth 2 time) inc))
@@ -118,6 +120,7 @@ The format uses the same syntax as `format-time-string'."
 (defmacro speeddating--time-set-year   (val) `(lambda (time string) (setf (nth 5 time) ,val)))
 (defmacro speeddating--time-set-dow    (val) `(lambda (time string) (setf (nth 6 time) ,val)))
 
+;; (info "(elisp) Time Parsing")
 (defvar speeddating--format-spec
   (list
    (list "%a"
