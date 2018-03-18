@@ -231,7 +231,7 @@ The format uses the same syntax as `format-time-string'."
          :set (lambda (time string)
                 (cond ((string= string "UTC")
                        (setf (nth 8 time) 0))
-                      ((string= string (cadr (current-time-zone)))
+                      ((equal string (cadr (current-time-zone)))
                        (setf (nth 8 time) (car (current-time-zone))))
                       (t (user-error "Unsupported time zone abbreviation %s" string))))
          :inc (lambda (_time _inc)
