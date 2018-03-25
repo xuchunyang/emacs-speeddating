@@ -1,6 +1,11 @@
-# `speeddating.el` [![Build Status](https://travis-ci.org/xuchunyang/emacs-speeddating.svg?branch=master)](https://travis-ci.org/xuchunyang/emacs-speeddating)
+# `speeddating.el` [![MELPA badge][melpa-badge]][melpa-link] [![Travis CI Build Status][travis-badge]][travis-link]
 
-Increase date and time at point
+  [melpa-link]: https://melpa.org/#/speeddating
+  [melpa-badge]: https://melpa.org/packages/speeddating-badge.svg
+  [travis-link]: https://travis-ci.org/xuchunyang/emacs-speeddating
+  [travis-badge]: https://travis-ci.org/xuchunyang/emacs-speeddating.svg?branch=master
+
+Increase date and time at point.
 
 For example, saying point is on `31`, `M-x speeddating-increase` will change
 
